@@ -39,7 +39,7 @@ def get_news_list():
         return jsonify(errno=RET.DATAERR, errmsg="数据类型错误")
 
     # 最新的新闻 不需要根据cid来查询只需要根据创建时间来查询
-    filters = []
+    filters = [News.status == 0]
     if cid != 1:
         # 将查询条件添加到filter列表中
         # ==底层是重写过的 News.category_id == cid是一个查询条件
