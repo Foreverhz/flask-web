@@ -110,5 +110,9 @@ def create_app(config_name): # development
     from info.modules.profile import profile_bp
     app.register_blueprint(profile_bp)
 
+    # 管理员模块
+    from info.modules.admin import admin_bp
+    app.register_blueprint(admin_bp)
+
 
     return app

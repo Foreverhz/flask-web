@@ -30,7 +30,7 @@ def createsuperuser(name, password):
     user.nick_name = name
     user.mobile = name
     user.password = password
-
+    
     try:
         db.session.add(user)
         db.session.commit()
