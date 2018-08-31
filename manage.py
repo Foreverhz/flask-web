@@ -3,6 +3,7 @@ from flask_script import Manager
 from info import create_app, db
 from flask_migrate import Migrate, MigrateCommand
 import logging
+from info.models import User
 
 
 # 单一职责的原则：manage.py 仅仅作为项目启动文件即可
@@ -16,16 +17,31 @@ Migrate(app, db)
 # 将迁移命令添加到管理对象中
 manager.add_command("db", MigrateCommand)
 
+
+# useage: python manage.py createsuperuser -n "admin" -p "123456"
+@manager.option("-n", "-name", dest="name")
+@manager.option("-p", "-password", dest="password")
+def createsuperuser(name, password):
+    """创建管理员用户"""
+    if not all([name, password]):
+        return "参数不足"
+    user = User()
+    user.is_admin = True
+    user.nick_name = name
+    user.mobile = name
+    user.password = password
+
+    try:
+        db.session.add(user)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+
+    print("创建管理员用户成功")
+
+
+
+
 if __name__ == '__main__':
-
-    # python manage.py runserver -h -p -d
-    # logging.debug("debug的日志信息")
-    # logging.info("info的日志信息")
-    # logging.warning("warning的日志信息")
-    # logging.error("error的日志信息")
-    # logging.critical("critical的日志信息")
-    #
-    # # 在 Flask框架 中，其自己对 Python 的 logging 进行了封装，在 Flask 应用程序中，可以以如下方式进行输出 log:
-    # current_app.logger.info("使用flask封住好的方法 info的日志信息")
-
     manager.run()
