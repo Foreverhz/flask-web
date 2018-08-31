@@ -9,7 +9,7 @@ from flask import render_template
 from info.utils.common import login_user_data
 from info.utils.image_store import qiniu_image_store
 from info import constants
-from info.models import User, Category
+from info.models import User, Category, News
 
 
 @profile_bp.route('/news_release', methods=["GET", "POST"])
@@ -31,6 +31,52 @@ def news_release():
         # 移除最新分类
         category_dict_list.pop(0)
         return render_template("news/user_news_release.html", data={"categories":category_dict_list})
+
+    # POST请求发布新闻
+    #1.获取参数
+    title = request.form.get("title")
+    category_id = request.form.get("category_id")
+    digest = request.form.get("digest")
+    index_image = request.files.get("index_image")
+    content = request.form.get("content")
+    source = "个人发布"
+    #2.校验参数
+    # 2.1 判断否为空
+    if not all([title, category_id, digest, index_image, content]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不足")
+    if not user:
+        return jsonify(errno=RET.SESSIONERR, errmsg="用户未登录")
+    # 3.逻辑处理
+    #保存图片
+    image_data = index_image.read()
+    try:
+        image_name = qiniu_image_store(image_data)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.THIRDERR, errmsg="上传新闻图片到七牛云失败")
+
+    # 创建新闻对象
+    news = News()
+    news.title = title
+    news.digest = digest
+    news.category_id = category_id
+    news.content = content
+    news.index_image_url = constants.QINIU_DOMIN_PREFIX + image_name
+    news.source = source
+    news.user_id = user.id
+    # 新闻处于审核中
+    news.status = 1
+
+    try:
+        db.session.add(news)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.DBERR, errmsg="新闻保存到数据库异常")
+
+    #4.返回值处理
+    return jsonify(errno=RET.OK, errmsg="发布新闻成功")
 
 
 @profile_bp.route('/collection')
