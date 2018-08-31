@@ -22,6 +22,8 @@ def login_out():
     session.pop("user_id", None)
     session.pop("nick_name", None)
     session.pop("mobile", None)
+    # 防止管理员登录后退出的时候没有清除session数据导致普通用户也能登录管理员首页
+    session.pop("is_admin", None)
 
     return jsonify(errno=RET.OK, errmsg="退出登录成功")
 
