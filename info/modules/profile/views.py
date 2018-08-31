@@ -9,7 +9,28 @@ from flask import render_template
 from info.utils.common import login_user_data
 from info.utils.image_store import qiniu_image_store
 from info import constants
-from info.models import User
+from info.models import User, Category
+
+
+@profile_bp.route('/news_release', methods=["GET", "POST"])
+@login_user_data
+def news_release():
+    """新闻发布页面展示 发布新闻后端接口"""
+    # 获取用户对象
+    user = g.user
+    if request.method == "GET":
+        # 查询分类数据
+        try:
+            categories = Category.query.all()
+        except Exception as e:
+            current_app.logger.error(e)
+        # 模型列表转字典列表
+        category_dict_list = []
+        for category in categories if categories else []:
+            category_dict_list.append(category.to_dict())
+        # 移除最新分类
+        category_dict_list.pop(0)
+        return render_template("news/user_news_release.html", data={"categories":category_dict_list})
 
 
 @profile_bp.route('/collection')
