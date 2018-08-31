@@ -1,5 +1,6 @@
+from flask import g
 from flask_sqlalchemy import SQLAlchemy
-from flask import Flask
+from flask import Flask, render_template
 from redis import StrictRedis
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_session import Session
@@ -13,7 +14,8 @@ from logging.handlers import RotatingFileHandler
 
 # 将数据库对象暴露给外界调用
 # 当app没有值的时候，我们创建一个空的数据库db对象
-from info.utils.common import do_index_class
+from info.utils.common import do_index_class, login_user_data
+
 
 db = SQLAlchemy()
 # 将redis数据库对象暴露给外界调用
@@ -77,6 +79,12 @@ def create_app(config_name): # development
         response.set_cookie("csrf_token", csrf_token)
         #3. 返回响应对象
         return response
+
+    @app.errorhandler(404)
+    @login_user_data
+    def page_not_found(e):
+        user = g.user
+        return render_template("news/404.html",data={"user_info": user.to_dict() if user else None,})
 
     # 6.创建session拓展类的对象(将session的存储调整到redis中)
     Session(app)
