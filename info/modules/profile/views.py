@@ -9,6 +9,45 @@ from flask import render_template
 from info.utils.common import login_user_data
 from info.utils.image_store import qiniu_image_store
 from info import constants
+from info.models import User
+
+
+@profile_bp.route('/collection')
+@login_user_data
+def user_collection():
+    """返回用户收藏的列表数据"""
+    #1.获取参数
+    p = request.args.get("p", 1)
+    user = g.user
+    #2.校验参数
+    try:
+        p = int(p)
+    except Exception as e:
+        current_app.logger.error(e)
+        p = 1
+    #3.逻辑处理
+    #user.collection_news由于指明了lazy="dynamic"在没有真正使用其数据的时候还是一个查询对象
+    try:
+        paginate = user.collection_news.paginate(p, constants.USER_COLLECTION_MAX_NEWS, False)
+    except Exception as e:
+        current_app.logger.error(e)
+    # 模型列表
+    items = paginate.items
+    current_page = paginate.page
+    total_page = paginate.pages
+
+    news_dict_list = []
+    for news in items if items else []:
+        news_dict_list.append(news.to_review_dict())
+
+    data = {
+        "collections":news_dict_list,
+        "current_page": current_page,
+        "total_page": total_page
+    }
+    #4.返回值处理
+
+    return render_template("news/user_collection.html", data=data)
 
 
 @profile_bp.route('/pass_info', methods=["GET", "POST"])
