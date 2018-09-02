@@ -13,6 +13,58 @@ from datetime import timedelta
 from info import constants, db
 
 
+@admin_bp.route('/news_edit')
+@login_user_data
+def news_edit():
+    """新闻编辑页面展示"""
+    # 1.获取参数
+    p = request.args.get("p", 1)
+    keywords = request.args.get("keywords")
+    # 获取用户对象
+    user = g.user
+    # 2.校验参数
+    try:
+        p = int(p)
+    except Exception as e:
+        current_app.logger.error(e)
+        p = 1
+
+    news_list = []
+    current_page = 1
+    total_page = 1
+    # 条件列表
+    filter = []
+    # 有值表示搜索
+    if keywords:
+        # 关键字包含于标题的搜索
+        filter.append(News.title.contains(keywords))
+    if user:
+        # 3.逻辑处理
+        try:
+            paginate = News.query.filter(*filter). \
+                order_by(News.create_time.desc()). \
+                paginate(p, constants.ADMIN_NEWS_PAGE_MAX_COUNT, False)
+
+            # 模型列表
+            news_list = paginate.items
+            current_page = paginate.page
+            total_page = paginate.pages
+
+        except Exception as e:
+            current_app.logger.error(e)
+    # 模型列表转换字典列表
+    news_dict_list = []
+    for news in news_list if news_list else []:
+        news_dict_list.append(news.to_review_dict())
+
+    data = {
+        "news_list": news_dict_list,
+        "current_page": current_page,
+        "total_page": total_page
+    }
+    return render_template("admin/news_edit.html", data=data)
+
+
 # /admin/news_review_detail?news_id=1
 @admin_bp.route('/news_review_detail', methods=["post", "get"])
 @login_user_data
