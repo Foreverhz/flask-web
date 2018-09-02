@@ -11,6 +11,48 @@ from info.utils.image_store import qiniu_image_store
 from info import constants
 from info.models import User, Category, News
 
+@profile_bp.route('/user_follow')
+@login_user_data
+def user_follow():
+    """用户关注列表展示"""
+
+    # 1.获取参数
+    p = request.args.get("p", 1)
+    # 获取用户对象
+    user = g.user
+    # 2.校验参数
+    try:
+        p = int(p)
+    except Exception as e:
+        current_app.logger.error(e)
+        p = 1
+
+    users = []
+    current_page = 1
+    total_page = 1
+    if user:
+        # 3.逻辑处理
+        try:
+            # 用户设置dynamic当你只做查询的时候user.followed就是一个查询对象
+            paginate = user.followed.paginate(p, constants.USER_FOLLOWED_MAX_COUNT, False)
+        except Exception as e:
+            current_app.logger.error(e)
+        # 模型列表
+        users = paginate.items
+        current_page = paginate.page
+        total_page = paginate.pages
+
+    user_dict_list = []
+    for user in users if users else []:
+        user_dict_list.append(user.to_dict())
+
+    data = {
+        "users": user_dict_list,
+        "current_page": current_page,
+        "total_page": total_page
+    }
+    return render_template("news/user_follow.html", data=data)
+
 
 @profile_bp.route('/news_list')
 @login_user_data
