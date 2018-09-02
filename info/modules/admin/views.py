@@ -3,7 +3,8 @@ from flask import current_app, jsonify
 from flask import g
 from flask import request, redirect, url_for
 from flask import session
-from info.models import User, News
+from info.models import User, News, Category
+from info.utils.image_store import qiniu_image_store
 from info.utils.response_code import RET
 from . import admin_bp
 from flask import render_template
@@ -11,6 +12,101 @@ from info.utils.common import login_user_data
 from datetime import datetime
 from datetime import timedelta
 from info import constants, db
+
+
+@admin_bp.route('/news_edit_detail', methods=["post", "get"])
+@login_user_data
+def news_edit_detail():
+    """新闻编辑详情页面"""
+    if request.method == "GET":
+        news_id = request.args.get("news_id")
+
+        news = None # type:News
+        try:
+            news = News.query.get(news_id)
+        except Exception as e:
+            current_app.logger.error(e)
+
+        # 查询所有分类
+        categories = []
+        try:
+            categories = Category.query.all()
+        except Exception as e:
+            current_app.logger.error(e)
+
+        # 移除最新的新闻
+        categories.pop(0)
+
+        category_dict_list = []
+        for category in categories if categories else []:
+            # 将分类对象转成字典
+            category_dict = category.to_dict()
+            #is_select = False
+            category_dict["is_selected"] = False
+            # 选中当前新闻id
+            # 新闻的分类id == 分类id相等才需要选中
+            if news.category_id == category.id:
+                category_dict["is_selected"] = True
+
+            category_dict_list.append(category_dict)
+
+        news_dict = news.to_dict() if news else None
+        data = {
+            "news": news_dict,
+            "categories": category_dict_list
+        }
+        return render_template("admin/news_edit_detail.html", data=data)
+
+    # POST请求 新闻编辑
+    # POST请求发布新闻
+    # 1.获取参数
+    news_id = request.form.get("news_id")
+    title = request.form.get("title")
+    category_id = request.form.get("category_id")
+    digest = request.form.get("digest")
+    index_image = request.files.get("index_image")
+    content = request.form.get("content")
+    # 2.校验参数
+    # 2.1 判断否为空
+    if not all([news_id, title, category_id, digest, content]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不足")
+
+    # 3.逻辑处理
+    news = None
+    try:
+        news = News.query.get(news_id)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="查询新闻数据异常")
+
+    if not news:
+        return jsonify(errno=RET.NODATA, errmsg="新闻不存在")
+
+    if index_image:
+        # 保存图片
+        image_data = index_image.read()
+        try:
+            image_name = qiniu_image_store(image_data)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.THIRDERR, errmsg="上传新闻图片到七牛云失败")
+        # 将新闻的主图片赋值
+        news.index_image_url = constants.QINIU_DOMIN_PREFIX + image_name
+
+    news.title = title
+    news.category_id = category_id
+    news.digest = digest
+    news.content = content
+
+    # 将修改保存回数据库
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.DBERR, errmsg="修改新闻失败")
+
+    return jsonify(errno=RET.OK, errmsg="编辑新闻成功")
 
 
 @admin_bp.route('/news_edit')
