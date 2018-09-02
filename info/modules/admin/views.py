@@ -14,6 +14,30 @@ from datetime import timedelta
 from info import constants, db
 
 
+@admin_bp.route('/category_type')
+@login_user_data
+def category_type():
+    """新闻分类的类型展示"""
+    categories = []
+    try:
+        categories = Category.query.all()
+    except Exception as e:
+        current_app.logger.error(e)
+
+    # 移除最新分类
+    categories.pop(0)
+    category_dict_list = []
+    for category in categories if categories else []:
+        category_dict_list.append(category.to_dict())
+
+    data = {
+        "categories": category_dict_list
+    }
+
+    return render_template("admin/news_type.html", data=data)
+
+
+
 @admin_bp.route('/news_edit_detail', methods=["post", "get"])
 @login_user_data
 def news_edit_detail():
