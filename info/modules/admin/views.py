@@ -1,15 +1,16 @@
 import time
-from flask import current_app
+from flask import current_app, jsonify
 from flask import g
 from flask import request, redirect, url_for
 from flask import session
 from info.models import User, News
+from info.utils.response_code import RET
 from . import admin_bp
 from flask import render_template
 from info.utils.common import login_user_data
 from datetime import datetime
 from datetime import timedelta
-from info import constants
+from info import constants, db
 
 
 # /admin/news_review_detail?news_id=1
@@ -32,6 +33,52 @@ def news_review_detail():
         }
         return render_template("admin/news_review_detail.html", data=data)
 
+    # POST请求 新闻的审核通过&不通过
+
+    # 1.获取参数
+    news_id = request.json.get("news_id")
+    action = request.json.get("action")
+    # 2.参数校验
+    if not all([news_id, action]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不足")
+
+    if action not in ["accept", "reject"]:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数填写错误")
+
+    #3.逻辑处理
+    news = None
+    try:
+        news = News.query.get(news_id)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="查询数据库异常")
+
+    if not news:
+        return jsonify(errno=RET.NODATA, errmsg="新闻不存在")
+
+    # 新闻存在
+    if action == "accept":
+        # 审核通过
+        news.status = 0
+    else:
+        # 拒绝原因
+        reason = request.json.get("reason")
+        if reason:
+            # 补充拒绝原因
+            news.reason = reason
+            # 拒绝
+            news.status = -1
+        else:
+            return jsonify(errno=RET.PARAMERR, errmsg="请填写拒绝原因")
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.DBERR, errmsg="修改新闻状态失败")
+
+    return jsonify(errno=RET.OK, errmsg="OK")
 
 
 @admin_bp.route('/news_review')
