@@ -14,6 +14,47 @@ from datetime import timedelta
 from info import constants, db
 
 
+@admin_bp.route('/add_category', methods=["POST"])
+@login_user_data
+def add_category():
+    """添加分类"""
+
+    # 1.获取参数
+    category_id = request.json.get("id")
+    category_name = request.json.get("name")
+
+    # 2.参数校验
+    if not category_name:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不足")
+    # 3.逻辑处理
+    # 分类编辑操作
+    if category_id:
+        category = None
+        try:
+            category = Category.query.get(category_id)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="查询分类异常")
+        if not category:
+            return jsonify(errno=RET.NODATA, errmsg="没有这个分类")
+
+        # 修改分类名称
+        category.name = category_name
+    else:
+        # 添加分类
+        category = Category()
+        category.name = category_name
+        db.session.add(category)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="修改、添加分类失败")
+
+    return jsonify(errno=RET.OK, errmsg="OK")
+
+
 @admin_bp.route('/category_type')
 @login_user_data
 def category_type():
