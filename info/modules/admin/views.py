@@ -10,6 +10,54 @@ from flask import render_template
 from info.utils.common import login_user_data
 from datetime import datetime
 from datetime import timedelta
+from info import constants
+
+
+@admin_bp.route('/user_list')
+@login_user_data
+def user_list():
+    """用户列表展示"""
+
+    # 1.获取参数
+    p = request.args.get("p", 1)
+    # 获取用户对象
+    user = g.user
+    # 2.校验参数
+    try:
+        p = int(p)
+    except Exception as e:
+        current_app.logger.error(e)
+        p = 1
+
+    users = []
+    current_page = 1
+    total_page = 1
+    if user:
+        # 3.逻辑处理
+        try:
+              paginate = User.query.filter(User.is_admin == False).\
+                  order_by(User.last_login.desc()).\
+                  paginate(p, constants.ADMIN_USER_PAGE_MAX_COUNT, False)
+
+              # 模型列表
+              users = paginate.items
+              current_page = paginate.page
+              total_page = paginate.pages
+
+        except Exception as e:
+            current_app.logger.error(e)
+
+    # 用户对象列表转换成字典列表
+    user_dict_list = []
+    for user in users if users else []:
+        user_dict_list.append(user.to_admin_dict())
+
+    data = {
+        "users": user_dict_list,
+        "current_page": current_page,
+        "total_page": total_page
+    }
+    return render_template("admin/user_list.html", data=data)
 
 
 @admin_bp.route('/user_count')
