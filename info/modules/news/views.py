@@ -11,6 +11,61 @@ from . import news_bp
 from info.utils.common import login_user_data
 
 
+@news_bp.route('/followed_user', methods=["POST"])
+@login_user_data
+def followed_user():
+    """关注、取消关注"""
+
+    #1 获取参数
+    user_id = request.json.get("user_id")
+    action = request.json.get("action")
+    user = g.user
+    #2.参数校验
+    if not all([user_id, action]):
+        return jsonify(errno=RET.PARAMERR, errmsg="参数不足")
+
+    if not user:
+        return jsonify(errno=RET.SESSIONERR, errmsg="用户未登录")
+
+    if action not in ["follow", "unfollow"]:
+        return jsonify(errno=RET.PARAMERR, errmsg="参数action填写错误")
+
+    # 3.逻辑处理
+    author = None
+    try:
+        author = User.query.get(user_id)
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR, errmsg="查询作者异常")
+
+    if not author:
+        return jsonify(errno=RET.NODATA, errmsg="作者不存在")
+    # 关注
+    # author.followers 作者的粉丝列表  author.followers.append(user)
+    if action == "follow":
+        # 作者不在用户偶像列表内
+        if author not in user.followed:
+            # 用户关注作者
+            user.followed.append(author)
+        else:
+            return jsonify(errno=RET.DATAEXIST, errmsg="用户已经关注过该作者")
+    else:
+        # 取消关注
+        # 作者在当前用户的偶像列表内才能取消关注
+        if author in user.followed:
+            # 取消关注
+            user.followed.remove(author)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.DBERR, errmsg="关注、取消关注失败")
+
+    return jsonify(errno=RET.OK, errmsg="OK")
+
+
 @news_bp.route('/comment_like', methods=["POST"])
 @login_user_data
 def comment_like():
