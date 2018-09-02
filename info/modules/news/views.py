@@ -301,6 +301,7 @@ def news_detail(news_id):
     # ------- 4.查询用户是否收藏过该新闻--------
     # False: 未收藏 True: 收藏过了
     is_collected = False
+    is_followed = False
 
     # # 1.判断用户是否登录
     # if not user:
@@ -312,6 +313,14 @@ def news_detail(news_id):
         if news in user.collection_news if user.collection_news else []:
             # 已经收藏了该新闻
             is_collected = True
+
+    # 用户已经登录 同时 进入详情页面的作者存在
+    # user: 当前登录用户  news.user: 作者
+    if user and news.user:
+        # news.user in user.followed :作者在用的偶像列表内 （登录的用户是这个作者的粉丝，表示关注过）
+        # user in news.user.followers :当前登录的用户在新闻作者的粉丝列表中
+        if user in news.user.followers:
+            is_followed = True
 
     # ------- 5.查询新闻的评论的列表数据--------
     comments = []
@@ -358,6 +367,7 @@ def news_detail(news_id):
         "newsClicksList": news_dict_list,
         "news": news.to_dict() if news else None,
         "is_collected": is_collected,
+        "is_followed": is_followed,
         "comments": comment_dict_list
     }
 
